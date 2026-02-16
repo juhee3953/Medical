@@ -1,0 +1,136 @@
+# No.1 데이터 담기 (변수와 자료형)
+# 환자의 기본 정보를 변수에 저장
+patient_name = "김철수"
+patient_age = 45
+patient_temperature = 37.2
+patient_blood_pressure = "120/80"
+has_diabetes = True
+
+# 환자 정보 출력
+print("=" * 40)
+print("📋 환자 정보")
+print("=" * 40)
+print(f"이름: {patient_name}")
+print(f"나이: {patient_age}세")
+print(f"체온: {patient_temperature}°C")
+print(f"혈압: {patient_blood_pressure} mmHg")
+print(f"당뇨 여부: {'있음' if has_diabetes else '없음'}")
+print("=" * 40)
+
+# (2) 리스트로 혈당 수치 기록하기
+# 최근 3일치 혈당 수치 (mg/dL)
+blood_sugar_levels = [120, 135, 128]
+
+# 1. 모든 값 한번에 출력
+print("\n🩸 최근 3일 혈당 수치 (모두 출력)")
+print(blood_sugar_levels)
+
+# 2. 하나씩 값 꺼내기
+print("\n🩸 최근 3일 혈당 수치 (하나씩 출력)")
+print(f"1일차: {blood_sugar_levels[0]} mg/dL")
+print(f"2일차: {blood_sugar_levels[1]} mg/dL")
+print(f"3일차: {blood_sugar_levels[2]} mg/dL")
+
+# 보너스: 반복문으로 출력하기
+print("\n🩸 최근 3일 혈당 수치 (반복문 사용)")
+for i in range(len(blood_sugar_levels)):
+    print(f"{i+1}일차: {blood_sugar_levels[i]} mg/dL")
+
+# 딕셔너리로 환자 차트 종합 정보 만들기
+# 환자 차트 (이름표가 있는 데이터)
+patient_chart = {
+    "이름": "김철수",
+    "나이": 45,
+    "체온": 37.2,
+    "혈압": "120/80",
+    "당뇨여부": True,
+    "혈당기록": [120, 135, 128],
+    "진료과": "내과",
+    "담당의": "박의사"
+}
+
+# 차트 정보 출력
+print("\n" + "=" * 40)
+print("📊 환자 차트 종합 정보")
+print("=" * 40)
+for key, value in patient_chart.items():
+    print(f"{key}: {value}")
+print("=" * 40)
+
+# 특정 정보만 꺼내기
+print(f"\n환자 {patient_chart['이름']}님의 담당의는 {patient_chart['담당의']}입니다.")
+
+# 의사의 진단 논리 (조건문)
+# 환자의 체온을 체크하여 진단
+patient_name = "이영희"
+temperature = 38.5
+
+print(f"\n🏥 {patient_name}님 진단 시스템")
+print(f"현재 체온: {temperature}°C")
+
+# 조건에 따른 진단
+if temperature >= 38.0:
+    print("🔴 판정: 발열 - 해열제 처방 및 안정 필요")
+    diagnosis = "발열"
+    prescription = "타이레놀 500mg"
+else:
+    print("🟢 판정: 정상 - 일반 검진 진행")
+    diagnosis = "정상"
+    prescription = "없음"
+
+print(f"진단명: {diagnosis}")
+print(f"처방: {prescription}")
+
+# 병동 환자 목록
+ward_patients = ["김철수", "이영희", "박민수", "최수진"]
+
+print("\n👩‍⚕️ 간호사 회진 시작")
+print("=" * 40)
+
+# 모든 환자를 순회하며 체크
+for patient in ward_patients:
+    print(f"✅ {patient}님 활력징후 체크 완료")
+    print(f"   - 혈압 측정 ✓")
+    print(f"   - 체온 측정 ✓")
+    print(f"   - 산소포화도 측정 ✓")
+    print()
+
+print("=" * 40)
+print("회진 완료! 총 {}명 체크".format(len(ward_patients)))
+
+## 환자 데이터
+patients = [
+    {"이름": "환자A", "응급도": 1, "상태": "심정지"},
+    {"이름": "환자B", "응급도": 3, "상태": "골절"},
+    {"이름": "환자C", "응급도": 2, "상태": "호흡곤란"}
+]
+
+print("\n" + "🚑 응급실 환자 분류 시스템 ".center(50, "="))
+print()
+
+# 모든 환자에 대해 반복
+for patient in patients:
+    # 환자 정보 추출
+    name = patient["이름"]
+    emergency_level = patient["응급도"]
+    condition = patient["상태"]
+    
+    # 응급도에 따른 분류
+    if emergency_level == 1:
+        print(f"🚨 [긴급] {name}님, 즉시 수술실로 이송!")
+        print(f"   상태: {condition}")
+    elif emergency_level == 2:
+        print(f"⚠️ [주의] {name}님, 집중 치료실 대기")
+        print(f"   상태: {condition}")
+    else:
+        print(f"✅ [대기] {name}님, 일반 진료실로 안내")
+        print(f"   상태: {condition}")
+    print()
+
+print("=" * 50)
+print(f"총 {len(patients)}명의 환자 분류 완료")
+
+
+
+
+
