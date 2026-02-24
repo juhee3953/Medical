@@ -1,0 +1,372 @@
+"""
+병원 종합 관리 시스템 (Hospital Management System)
+- 환자 등록 및 관리
+- 의사 관리
+- 진료 예약
+- 진료 기록
+- 통계 및 리포트
+- 데이터 저장/불러오기
+"""
+
+import json
+import os
+from datetime import datetime
+from typing import List, Dict, Optional
+
+# ============ 예외 클래스 ============
+class HospitalError(Exception):
+    """병원 시스템 기본 예외"""
+    pass
+
+class PatientNotFoundError(HospitalError):
+    """환자를 찾을 수 없음"""
+    pass
+
+class DoctorNotFoundError(HospitalError):
+    """의사를 찾을 수 없음"""
+    pass
+
+# ============ 기본 클래스 ============
+class Person:
+    """사람 기본 클래스"""
+    def __init__(self, name: str, age: int, phone: str):
+        self.name = name
+        self.age = age
+        self.phone = phone
+    
+    def to_dict(self) -> Dict:
+        return {
+            "name": self.name,
+            "age": self.age,
+            "phone": self.phone
+        }
+
+class Patient(Person):
+    """환자 클래스"""
+    _id_counter = 1000
+    
+    def __init__(self, name: str, age: int, phone: str, blood_type: str):
+        super().__init__(name, age, phone)
+        self.patient_id = f"P-{Patient._id_counter}"
+        Patient._id_counter += 1
+        self.blood_type = blood_type
+        self.medical_records: List[Dict] = []
+    
+    def add_record(self, diagnosis: str, doctor_name: str, prescription: str = ""):
+        """진료 기록 추가"""
+        record = {
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "diagnosis": diagnosis,
+            "doctor": doctor_name,
+            "prescription": prescription
+        }
+        self.medical_records.append(record)
+    
+    def get_latest_record(self) -> Optional[Dict]:
+        """최근 진료 기록"""
+        return self.medical_records[-1] if self.medical_records else None
+    
+    def to_dict(self) -> Dict:
+        data = super().to_dict()
+        data.update({
+            "patient_id": self.patient_id,
+            "blood_type": self.blood_type,
+            "medical_records": self.medical_records
+        })
+        return data
+    
+    def __str__(self):
+        return f"{self.name} ({self.patient_id}, {self.age}세, {self.blood_type}형)"
+
+class Doctor(Person):
+    """의사 클래스"""
+    def __init__(self, name: str, age: int, phone: str, 
+                 department: str, license_number: str):
+        super().__init__(name, age, phone)
+        self.department = department
+        self.license_number = license_number
+        self.appointments: List[Dict] = []
+    
+    def add_appointment(self, patient_id: str, date: str, time: str):
+        """예약 추가"""
+        appointment = {
+            "patient_id": patient_id,
+            "date": date,
+            "time": time,
+            "status": "scheduled"
+        }
+        self.appointments.append(appointment)
+    
+    def complete_appointment(self, patient_id: str):
+        """예약 완료 처리"""
+        for apt in self.appointments:
+            if apt["patient_id"] == patient_id and apt["status"] == "scheduled":
+                apt["status"] = "completed"
+                break
+    
+    def to_dict(self) -> Dict:
+        data = super().to_dict()
+        data.update({
+            "department": self.department,
+            "license_number": self.license_number,
+            "appointments": self.appointments
+        })
+        return data
+    
+    def __str__(self):
+        return f"{self.name} 의사 ({self.department})"
+
+# ============ 병원 관리 시스템 ============
+class Hospital:
+    """병원 종합 관리 시스템"""
+    
+    def __init__(self, name: str, data_dir: str = "hospital_data"):
+        self.name = name
+        self.data_dir = data_dir
+        self.patients: Dict[str, Patient] = {}
+        self.doctors: Dict[str, Doctor] = {}
+        
+        # 데이터 디렉토리 생성
+        os.makedirs(data_dir, exist_ok=True)
+        
+        # 저장된 데이터 로드
+        self.load_data()
+    
+    # ===== 환자 관리 =====
+    def register_patient(self, name: str, age: int, phone: str, blood_type: str) -> Patient:
+        """환자 등록"""
+        patient = Patient(name, age, phone, blood_type)
+        self.patients[patient.patient_id] = patient
+        self.save_data()
+        print(f"✅ {name}님 등록 완료 (ID: {patient.patient_id})")
+        return patient
+    
+    def find_patient(self, patient_id: str) -> Patient:
+        """환자 검색"""
+        if patient_id not in self.patients:
+            raise PatientNotFoundError(f"환자 {patient_id}를 찾을 수 없습니다.")
+        return self.patients[patient_id]
+    
+    def search_patients_by_name(self, name: str) -> List[Patient]:
+        """이름으로 환자 검색"""
+        return [p for p in self.patients.values() if name in p.name]
+    
+    # ===== 의사 관리 =====
+    def hire_doctor(self, name: str, age: int, phone: str, 
+                    department: str, license_number: str) -> Doctor:
+        """의사 채용"""
+        doctor = Doctor(name, age, phone, department, license_number)
+        self.doctors[license_number] = doctor
+        self.save_data()
+        print(f"✅ {name} 의사 채용 완료 ({department})")
+        return doctor
+    
+    def find_doctor(self, license_number: str) -> Doctor:
+        """의사 검색"""
+        if license_number not in self.doctors:
+            raise DoctorNotFoundError(f"의사를 찾을 수 없습니다.")
+        return self.doctors[license_number]
+    
+    def get_doctors_by_department(self, department: str) -> List[Doctor]:
+        """진료과별 의사 검색"""
+        return [d for d in self.doctors.values() if d.department == department]
+    
+    # ===== 진료 =====
+    def diagnose(self, patient_id: str, doctor_license: str, 
+                 diagnosis: str, prescription: str = ""):
+        """진료 실시"""
+        patient = self.find_patient(patient_id)
+        doctor = self.find_doctor(doctor_license)
+        
+        patient.add_record(diagnosis, doctor.name, prescription)
+        doctor.complete_appointment(patient_id)
+        
+        self.save_data()
+        
+        print(f"\n🏥 진료 완료")
+        print(f"환자: {patient.name}")
+        print(f"의사: {doctor.name}")
+        print(f"진단: {diagnosis}")
+        if prescription:
+            print(f"처방: {prescription}")
+    
+    # ===== 예약 =====
+    def make_appointment(self, patient_id: str, doctor_license: str, 
+                        date: str, time: str):
+        """예약 생성"""
+        patient = self.find_patient(patient_id)
+        doctor = self.find_doctor(doctor_license)
+        
+        doctor.add_appointment(patient_id, date, time)
+        self.save_data()
+        
+        print(f"✅ 예약 완료: {patient.name} -> {doctor.name}")
+        print(f"   일시: {date} {time}")
+    
+    # ===== 통계 및 리포트 =====
+    def get_statistics(self) -> Dict:
+        """병원 통계"""
+        stats = {
+            "총_환자수": len(self.patients),
+            "총_의사수": len(self.doctors),
+            "총_진료건수": sum(len(p.medical_records) for p in self.patients.values()),
+            "진료과별_의사수": {}
+        }
+        
+        # 진료과별 의사 수
+        for doctor in self.doctors.values():
+            dept = doctor.department
+            stats["진료과별_의사수"][dept] = stats["진료과별_의사수"].get(dept, 0) + 1
+        
+        return stats
+    
+    def print_statistics(self):
+        """통계 출력"""
+        stats = self.get_statistics()
+        
+        print("\n" + "=" * 60)
+        print(f"🏥 {self.name} 통계")
+        print("=" * 60)
+        print(f"총 환자 수: {stats['총_환자수']}명")
+        print(f"총 의사 수: {stats['총_의사수']}명")
+        print(f"총 진료 건수: {stats['총_진료건수']}건")
+        
+        print("\n📊 진료과별 의사 수:")
+        for dept, count in stats["진료과별_의사수"].items():
+            print(f"  {dept}: {count}명")
+        print("=" * 60)
+    
+    def generate_patient_report(self, patient_id: str):
+        """환자 리포트 생성"""
+        patient = self.find_patient(patient_id)
+        
+        print("\n" + "=" * 60)
+        print(f"📋 환자 진료 리포트")
+        print("=" * 60)
+        print(f"환자 ID: {patient.patient_id}")
+        print(f"이름: {patient.name}")
+        print(f"나이: {patient.age}세")
+        print(f"혈액형: {patient.blood_type}형")
+        print(f"전화번호: {patient.phone}")
+        
+        print(f"\n📝 진료 기록 ({len(patient.medical_records)}건):")
+        print("-" * 60)
+        
+        if not patient.medical_records:
+            print("진료 기록이 없습니다.")
+        else:
+            for i, record in enumerate(patient.medical_records, 1):
+                print(f"\n[{i}] {record['date']}")
+                print(f"    진단명: {record['diagnosis']}")
+                print(f"    담당의: {record['doctor']}")
+                if record['prescription']:
+                    print(f"    처방: {record['prescription']}")
+        
+        print("\n" + "=" * 60)
+    
+    # ===== 데이터 저장/로드 =====
+    def save_data(self):
+        """데이터 저장"""
+        data = {
+            "patients": {pid: p.to_dict() for pid, p in self.patients.items()},
+            "doctors": {lic: d.to_dict() for lic, d in self.doctors.items()}
+        }
+        
+        filepath = os.path.join(self.data_dir, "hospital_data.json")
+        with open(filepath, "w", encoding="utf-8") as file:
+            json.dump(data, file, ensure_ascii=False, indent=2)
+    
+    def load_data(self):
+        """데이터 로드"""
+        filepath = os.path.join(self.data_dir, "hospital_data.json")
+        
+        if not os.path.exists(filepath):
+            return
+        
+        try:
+            with open(filepath, "r", encoding="utf-8") as file:
+                data = json.load(file)
+            
+            # 환자 복원
+            for patient_data in data.get("patients", {}).values():
+                patient = Patient(
+                    patient_data["name"],
+                    patient_data["age"],
+                    patient_data["phone"],
+                    patient_data["blood_type"]
+                )
+                patient.patient_id = patient_data["patient_id"]
+                patient.medical_records = patient_data["medical_records"]
+                self.patients[patient.patient_id] = patient
+            
+            # 의사 복원
+            for doctor_data in data.get("doctors", {}).values():
+                doctor = Doctor(
+                    doctor_data["name"],
+                    doctor_data["age"],
+                    doctor_data["phone"],
+                    doctor_data["department"],
+                    doctor_data["license_number"]
+                )
+                doctor.appointments = doctor_data["appointments"]
+                self.doctors[doctor.license_number] = doctor
+            
+            print(f"✅ 저장된 데이터 로드 완료")
+            print(f"   환자: {len(self.patients)}명, 의사: {len(self.doctors)}명")
+        
+        except Exception as e:
+            print(f"❌ 데이터 로드 실패: {e}")
+
+# ============ 메인 프로그램 ============
+def main():
+    """메인 프로그램"""
+    hospital = Hospital("서울대학병원")
+    
+    print("\n🏥 병원 관리 시스템 시작")
+    print("=" * 60)
+    
+    # 의사 채용
+    print("\n👨‍⚕️ 의사 채용")
+    doctor1 = hospital.hire_doctor("김의사", 40, "010-1111-2222", "내과", "D-001")
+    doctor2 = hospital.hire_doctor("이의사", 38, "010-3333-4444", "외과", "D-002")
+    doctor3 = hospital.hire_doctor("박의사", 45, "010-5555-6666", "내과", "D-003")
+    
+    # 환자 등록
+    print("\n👥 환자 등록")
+    patient1 = hospital.register_patient("김철수", 45, "010-1234-5678", "A")
+    patient2 = hospital.register_patient("이영희", 30, "010-2345-6789", "B")
+    patient3 = hospital.register_patient("박민수", 55, "010-3456-7890", "O")
+    
+    # 예약
+    print("\n📅 예약 생성")
+    hospital.make_appointment(patient1.patient_id, "D-001", "2024-03-15", "10:00")
+    hospital.make_appointment(patient2.patient_id, "D-002", "2024-03-15", "11:00")
+    
+    # 진료
+    print("\n🩺 진료 실시")
+    hospital.diagnose(patient1.patient_id, "D-001", "고혈압", "혈압약 하루 1회 복용")
+    hospital.diagnose(patient1.patient_id, "D-001", "당뇨", "혈당 관리 및 식이요법")
+    hospital.diagnose(patient2.patient_id, "D-002", "골절", "깁스 4주")
+    hospital.diagnose(patient3.patient_id, "D-003", "감기", "해열제 처방")
+    
+    # 환자 리포트
+    hospital.generate_patient_report(patient1.patient_id)
+    
+    # 통계
+    hospital.print_statistics()
+    
+    # 검색 테스트
+    print("\n🔍 환자 검색 (이름: 김)")
+    results = hospital.search_patients_by_name("김")
+    for p in results:
+        print(f"  {p}")
+    
+    print("\n🔍 내과 의사 검색")
+    internal_doctors = hospital.get_doctors_by_department("내과")
+    for d in internal_doctors:
+        print(f"  {d}")
+    
+    print("\n✅ 시스템 종료")
+
+if __name__ == "__main__":
+    main()
