@@ -1,0 +1,91 @@
+from typing import List, Dict, Callable
+from functools import reduce
+import time
+
+def measure_performance(func: Callable) -> Callable:
+    """성능 측정 데코레이터"""
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        result = func(*args, **kwargs)
+        elapsed = time.time() - start
+        print(f"⏱️ {func.__name__}: {elapsed:.4f}초")
+        return result
+    return wrapper
+
+class PatientAnalytics:
+    """고급 환자 데이터 분석"""
+    
+    def __init__(self, patients: List[Dict]):
+        self.patients = patients
+    
+    @measure_performance
+    def filter_by_condition(self, condition: Callable[[Dict], bool]) -> List[Dict]:
+        """조건에 맞는 환자 필터링"""
+        return [p for p in self.patients if condition(p)]
+    
+    @measure_performance
+    def group_by_field(self, field: str) -> Dict[str, List[Dict]]:
+        """특정 필드로 그룹화"""
+        groups = {}
+        for patient in self.patients:
+            key = patient.get(field, "Unknown")
+            if key not in groups:
+                groups[key] = []
+            groups[key].append(patient)
+        return groups
+    
+    @measure_performance
+    def aggregate(self, field: str, operation: Callable) -> float:
+        """집계 함수"""
+        values = [p[field] for p in self.patients if field in p]
+        return operation(values) if values else 0
+    
+    def pipeline(self, *operations):
+        """여러 연산을 순차 실행"""
+        result = self.patients
+        for operation in operations:
+            result = operation(result)
+        return result
+
+# 테스트 데이터
+patients = [
+    {"name": "김철수", "age": 45, "blood_type": "A", "fever": True, "temperature": 38.5},
+    {"name": "이영희", "age": 30, "blood_type": "B", "fever": False, "temperature": 36.8},
+    {"name": "박민수", "age": 55, "blood_type": "A", "fever": True, "temperature": 39.1},
+    {"name": "최수진", "age": 38, "blood_type": "O", "fever": False, "temperature": 37.2},
+    {"name": "정민호", "age": 28, "blood_type": "AB", "fever": True, "temperature": 38.3}
+]
+
+analytics = PatientAnalytics(patients)
+
+# 발열 환자 필터링
+print("\n🔍 발열 환자 필터링:")
+fever_patients = analytics.filter_by_condition(lambda p: p["fever"])
+print([p["name"] for p in fever_patients])
+
+# 혈액형별 그룹화
+print("\n🩸 혈액형별 그룹화:")
+by_blood_type = analytics.group_by_field("blood_type")
+for blood_type, group in by_blood_type.items():
+    print(f"{blood_type}형: {len(group)}명")
+
+# 평균 나이 계산
+print("\n📊 평균 나이:")
+avg_age = analytics.aggregate("age", lambda values: sum(values) / len(values))
+print(f"{avg_age:.1f}세")
+
+# 최고 체온
+print("\n🌡️ 최고 체온:")
+max_temp = analytics.aggregate("temperature", max)
+print(f"{max_temp}°C")
+
+# 파이프라인 예제
+print("\n⚙️ 파이프라인 처리:")
+result = analytics.pipeline(
+    lambda data: [p for p in data if p["age"] > 35],  # 35세 이상
+    lambda data: [p for p in data if p["fever"]],     # 발열 있음
+    lambda data: sorted(data, key=lambda x: x["temperature"], reverse=True)  # 체온순 정렬
+)
+print("35세 이상 발열 환자 (체온순):")
+for p in result:
+    print(f"  {p['name']}: {p['temperature']}°C")
